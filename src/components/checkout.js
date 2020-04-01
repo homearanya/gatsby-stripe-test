@@ -38,7 +38,7 @@ const Checkout = () => {
     const fetchData = async () => {
       const result = await axios.post(
         // "https://gatsby-stripe-test.netlify.com//.netlify/functions/stripe",
-        "https://taxa0gxfbh.execute-api.us-east-1.amazonaws.com/dev/stripe",
+        "https://dzzofzdmy7.execute-api.us-east-1.amazonaws.com/dev/stripe",
         {
           amount: 10000, //it expects the price in cents, as an integer
           // stripeToken: "tok_visa", //testing token, later we would use payload.data.token
