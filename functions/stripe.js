@@ -4,42 +4,54 @@ require("dotenv").config({
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 
-// const headers = {
-//   "Access-Control-Allow-Origin": "*",
-//   "Access-Control-Allow-Headers": "Content-Type",
-// }
+const headers = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+}
 
-exports.handler = async (event, context) => {
-  console.log("stripe lambda function: ", event.body)
-  //   if (!event.body || event.httpMethod !== "POST") {
-  //     return {
-  //       statusCode: 400,
-  //       headers,
-  //       body: JSON.stringify({ status: "invalid http method" }),
-  //     }
-  //   }
+exports.handler = (event, context, callback) => {
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 200, // <-- Important!
+      headers,
+      body: "This was not a POST request!",
+    }
+  }
 
-  //   const data = JSONj.parse(event.body)
+  // some error checking:
+  if (event.httpMethod !== "POST" || !event.body) {
+    callback(null, {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ status: "bad-payload" }),
+    })
+  }
+  // Parse the body contents into an object.
+  const data = JSON.parse(event.body)
 
-  //   if (!data.stripeToken || !data.stripeAmt || data.stripeIdempotency) {
-  //     console.log("Required information missing")
+  // Make sure we have all required data. Otherwise, escape.
+  if (!data.amount) {
+    console.error("Required information is missing.")
 
-  //     return {
-  //       statusCode: 400,
-  //       headers,
-  //       body: JSON.stringify({ status: "Required information missing" }),
-  //     }
-  //   }
+    callback(null, {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ status: "missing-information" }),
+    })
 
-  try {
-    const session = await stripe.checkout.sessions.create({
+    return
+  }
+
+  console.log("about to create session")
+  stripe.checkout.sessions.create(
+    {
       payment_method_types: ["card"],
       line_items: [
         {
           name: "T-shirt",
           description: "Comfortable cotton t-shirt",
           images: ["https://gatsby-stripe-test.netlify.com//t-shirt.png"],
-          amount: 500,
+          amount: data.amount,
           currency: "eur",
           quantity: 1,
         },
@@ -47,31 +59,27 @@ exports.handler = async (event, context) => {
       success_url:
         "https://gatsby-stripe-test.netlify.com//success?session_id={CHECKOUT_SESSION_ID}",
       cancel_url: "https://gatsby-stripe-test.netlify.com//cancel",
-    })
-  } catch (error) {}
+    },
 
-  //   // stripe charge processing starts here
-  //   try {
-  //     await stripe.customers
-  //       .create({ email: data.stripeEmail, source: data.stripeToken })
-  //       .then(customer => {
-  //         console.log(
-  //           `starting the charges, amt: ${data.stripeAmt}, email: ${data.stripeEmail}`
-  //         )
-
-  //         return stripe.charges.create(
-  //           {
-  //             currency: "EUR",
-  //             amount: data.stripeAmt,
-  //             receipt_email: data.stripeEmail,
-  //             customer: customer.id,
-  //             description: "test charge",
-  //           },
-  //           {
-  //             idempotency_key: data.stripeIdempotency,
-  //           }
-  //         )
-  //       })
-  //       .then(result => console.log("charge created: ", result))
-  //   } catch (error) {}
+    function(err, session) {
+      // asynchronously called
+      if (err !== null) {
+        console.log(err)
+        callback(null, {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ status: "session-create-failed" }),
+        })
+      }
+      // woohoo! it worked, send the session id back to the browser:
+      callback(null, {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          status: "session-created",
+          sessionId: session.id,
+        }),
+      })
+    }
+  )
 }

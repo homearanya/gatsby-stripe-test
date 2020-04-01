@@ -1,5 +1,5 @@
-import React, { useEffect } from "react"
-// import { loadStripe } from "@stripe/stripe-js"
+import React, { useState, useEffect } from "react"
+import { loadStripe } from "@stripe/stripe-js"
 import axios from "axios"
 
 const buttonStyles = {
@@ -14,42 +14,33 @@ const buttonStyles = {
   letterSpacing: "1.5px",
 }
 
-// const stripePromise = loadStripe(process.env.GATSBY_STRIPE_PUBLISHABLE_KEY)
+const stripePromise = loadStripe("pk_test_9BnabfLcqNxYxfbNAjLpzRKF00PDb2TW0m")
 
-const redirectToCheckout = async event => {
+const redirectToCheckout = async (event, sessionId) => {
   event.preventDefault()
-  // const stripe = await stripePromise
-  // const { error } = await stripe.redirectToCheckout({
-  //   items: [{ sku: process.env.GATSBY_BUTTON_SKU_ID, quantity: 1 }],
-  //   successUrl: `${window.location.origin}/page-2/`,
-  //   cancelUrl: `${window.location.origin}/`,
-  // })
+  const stripe = await stripePromise
+  const { error } = await stripe.redirectToCheckout({
+    // Make the id field from the Checkout Session creation API response
+    // available to this file, so you can provide it as parameter here
+    // instead of the {{CHECKOUT_SESSION_ID}} placeholder.
+    sessionId: sessionId,
+  })
 
-  //   if (error) {
-  //     console.warn("Error:", error)
-  //   }
-  //   stripe
-  //     .redirectToCheckout({
-  //       // Make the id field from the Checkout Session creation API response
-  //       // available to this file, so you can provide it as parameter here
-  //       // instead of the {{CHECKOUT_SESSION_ID}} placeholder.
-  //       sessionId: "{{CHECKOUT_SESSION_ID}}",
-  //     })
-  //     .then(function(result) {
-  //       // If `redirectToCheckout` fails due to a browser or network
-  //       // error, display the localized error message to your customer
-  //       // using `result.error.message`.
-  //     })
+  if (error) {
+    console.warn("Error:", error)
+  }
 }
 
 const Checkout = () => {
+  const [sessionId, setSessionId] = useState(null)
+
   useEffect(() => {
     const fetchData = async () => {
       const result = await axios.post(
-        "https://gatsby-stripe-test.netlify.com//.netlify/functions/stripe",
+        // "https://gatsby-stripe-test.netlify.com//.netlify/functions/stripe",
+        "https://taxa0gxfbh.execute-api.us-east-1.amazonaws.com/dev/stripe",
         {
-          stripeEmail: "homearanya@gmail.com",
-          stripeAmt: 10000, //it expects the price in cents, as an integer
+          amount: 10000, //it expects the price in cents, as an integer
           // stripeToken: "tok_visa", //testing token, later we would use payload.data.token
           // stripeIdempotency: uuidv1(), //we use this library to create a unique id
         },
@@ -59,6 +50,7 @@ const Checkout = () => {
           },
         }
       )
+      setSessionId(result.data.sessionId)
       console.log(result)
     }
     fetchData()
@@ -74,7 +66,10 @@ const Checkout = () => {
   }, [])
 
   return (
-    <button style={buttonStyles} onClick={redirectToCheckout}>
+    <button
+      style={buttonStyles}
+      onClick={event => redirectToCheckout(event, sessionId)}
+    >
       BUY MY BOOK
     </button>
   )
